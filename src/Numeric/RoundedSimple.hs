@@ -87,6 +87,9 @@ module Numeric.RoundedSimple
 , acosh_
 , log1p_
 , expm1_
+
+, in_'
+, out_''
 )
 where
 
@@ -410,13 +413,19 @@ in_' (Rounded p s e l) f = withByteArray l $ \ptr _bytes -> f MPFR
 in_ :: Rounded -> (Ptr MPFR -> IO a) -> IO a
 in_ x f = in_' x $ \y -> with y f
 
+out_'' :: MPFR -> IO Rounded
+out_'' MPFR { mpfrPrec = p', mpfrSign = s', mpfrExp = e', mpfrD = d' } =
+  asByteArray d' (precBytes p') $ \l' -> return (Rounded p' s' e' l')
+
 out_' :: MPFRPrec -> (Ptr MPFR -> IO a) -> IO (Maybe (Rounded), a)
 out_' p f = allocaBytes (precBytes p) $ \d -> with
   MPFR{ mpfrPrec = p, mpfrSign = 0, mpfrExp = 0, mpfrD = d } $ \ptr -> do
   a <- f ptr
-  MPFR{ mpfrPrec = p', mpfrSign = s', mpfrExp = e', mpfrD = d' } <- peek ptr
-  if p /= p' then return (Nothing, a) else
-    asByteArray d' (precBytes p') $ \l' -> return (Just (Rounded p' s' e' l'), a)
+  mpfr' <- peek ptr
+  if p /= mpfrPrec mpfr' then return (Nothing, a) else
+    do
+    r' <- out_'' mpfr'
+    return (Just r', a)
 
 out_ :: Precision -> (Ptr MPFR -> IO a) -> IO (Maybe (Rounded), a)
 out_ p f = r where
