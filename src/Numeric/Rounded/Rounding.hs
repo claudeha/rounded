@@ -13,8 +13,8 @@
 -- |
 -- Module      :  Numeric.Rounded.Rounding
 -- Copyright   :  (C) 2012-2014 Edward Kmett
--- License     :  LGPL
--- Maintainer  :  Edward Kmett <ekmett@gmail.com>
+-- License     :  BSD3
+-- Maintainer  :  Claude Heiland-Allen <claude@mathr.co.uk>
 -- Stability   :  experimental
 -- Portability :  non-portable
 --
@@ -29,14 +29,16 @@ module Numeric.Rounded.Rounding
 import Data.Data
 import Data.Singletons
 
+import Numeric.MPFR.Types
+
 data RoundingMode
-  = TowardNearestWithTiesAwayFromZero
-  | TowardNearest
-  | TowardZero
-  | TowardInf
-  | TowardNegInf
-  | AwayFromZero
-  | Faithfully
+  = TowardNearestWithTiesAwayFromZero -- ^ currently unsupported placeholder
+  | TowardNearest -- ^ roundTiesToEven in IEEE 754-2008
+  | TowardZero    -- ^ roundTowardZero in IEEE 754-2008
+  | TowardInf     -- ^ roundTowardPositive in IEEE 754-2008
+  | TowardNegInf  -- ^ roundTowardNegative in IEEE 754-2008
+  | AwayFromZero  -- ^ round away from zero
+  | Faithfully    -- ^ currently unsupported placeholder
   deriving (Eq,Ord,Show,Read,Data,Typeable)
 
 class Rounding (r :: RoundingMode) where rounding :: Proxy r -> RoundingMode
@@ -49,33 +51,28 @@ instance Rounding Faithfully    where rounding _ = Faithfully
 instance Rounding TowardNearestWithTiesAwayFromZero where rounding _ = TowardNearestWithTiesAwayFromZero
 
 instance Enum RoundingMode where
-  toEnum (-1) = TowardNearestWithTiesAwayFromZero
-  toEnum 0 = TowardNearest
-  toEnum 1 = TowardZero
-  toEnum 2 = TowardInf
-  toEnum 3 = TowardNegInf
-  toEnum 4 = AwayFromZero
-  toEnum 5 = Faithfully
+  toEnum MPFR_RNDNA = TowardNearestWithTiesAwayFromZero
+  toEnum MPFR_RNDN = TowardNearest
+  toEnum MPFR_RNDZ = TowardZero
+  toEnum MPFR_RNDU = TowardInf
+  toEnum MPFR_RNDD = TowardNegInf
+  toEnum MPFR_RNDA = AwayFromZero
+  toEnum MPFR_RNDF = Faithfully
   toEnum _ = error "out of range"
 
-  fromEnum TowardNearestWithTiesAwayFromZero = -1
-  fromEnum TowardNearest = 0
-  fromEnum TowardZero = 1
-  fromEnum TowardInf = 2
-  fromEnum TowardNegInf = 3
-  fromEnum AwayFromZero = 4
-  fromEnum Faithfully = 5
+  fromEnum TowardNearestWithTiesAwayFromZero = MPFR_RNDNA
+  fromEnum TowardNearest = MPFR_RNDN
+  fromEnum TowardZero = MPFR_RNDZ
+  fromEnum TowardInf = MPFR_RNDU
+  fromEnum TowardNegInf = MPFR_RNDD
+  fromEnum AwayFromZero = MPFR_RNDA
+  fromEnum Faithfully = MPFR_RNDF
 
 instance Bounded RoundingMode where
   minBound = TowardNearestWithTiesAwayFromZero
   maxBound = Faithfully
 
 newtype instance Sing (m :: RoundingMode) = SRounding RoundingMode
-
-instance SingKind ('KProxy :: KProxy RoundingMode) where
-  type DemoteRep ('KProxy :: KProxy RoundingMode) = RoundingMode
-  fromSing (SRounding n) = n
-  toSing n = SomeSing (SRounding n)
 
 instance SingI TowardNearestWithTiesAwayFromZero where sing = SRounding TowardNearestWithTiesAwayFromZero
 instance SingI TowardNearest where sing = SRounding TowardNearest
